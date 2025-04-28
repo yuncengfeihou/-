@@ -4,7 +4,7 @@
 // 需要一种方式让 Worker 也能使用 idbHelper，或者在主线程查询后将数据发送给 Worker
 
 // 方案一：Worker 自己导入 idbHelper (如果环境允许，现代浏览器通常可以)
-import { getAllStats } from './idbHelper.js'; // 假设路径正确
+import { getAllStats } from '/extensions/third-party/day1/idbHelper.js';
 const extensionName = "day1"; // 需要在这里也定义
 
 self.onmessage = async (event) => {
