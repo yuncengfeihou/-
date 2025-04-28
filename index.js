@@ -146,7 +146,7 @@ jQuery(async () => {
 
      // 2. 初始化 Web Worker (可选)
     try {
-        statsWorker = new Worker('./extensions/third-party/day1/statsWorker.js', { type: 'module' });
+        statsWorker = new Worker('/public/extensions/third-party/day1/statsWorker.js', { type: 'module' });
 
         statsWorker.onmessage = (event) => {
             if (event.data && event.data.command === 'statsResult') {
