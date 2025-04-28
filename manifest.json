@@ -1,7 +1,6 @@
-// public/extensions/third-party/daily-usage-stats/manifest.json
 {
     "display_name": "每日使用统计 (Daily Usage Stats)",
-    "loading_order": 100,
+    "loading_order": 4,
     "requires": [],
     "optional": [],
     "js": "index.js",
