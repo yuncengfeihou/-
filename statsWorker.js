@@ -5,7 +5,7 @@
 
 // 方案一：Worker 自己导入 idbHelper (如果环境允许，现代浏览器通常可以)
 import { getAllStats } from './idbHelper.js'; // 假设路径正确
-const extensionName = "daily-usage-stats"; // 需要在这里也定义
+const extensionName = "day1"; // 需要在这里也定义
 
 self.onmessage = async (event) => {
     if (event.data && event.data.command === 'fetchAndProcessStats') {
