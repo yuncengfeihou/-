@@ -2,7 +2,7 @@
 import { extension_settings, getContext, renderExtensionTemplateAsync } from '../../../extensions.js';
 import { eventSource, event_types, characters, itemizedPrompts } from '../../../../script.js';
 import { moment } from '../../../lib.js'; // 导入 moment.js
-import { , groups } from '../../../chats-group.js';
+import { groups } from '../../../chats-group.js';
 
 // 导入 IndexedDB 辅助函数
 import { initDB, addOrUpdateStat, getAllStats } from './idbHelper.js'; // 确保路径正确
