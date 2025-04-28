@@ -5,7 +5,7 @@ import moment from "../../../../../../../lib/moment.js"; // 导入 moment.js
 // 导入 IndexedDB 辅助函数
 import { initDB, addOrUpdateStat, getAllStats } from './idbHelper.js'; // 确保路径正确
 
-const extensionName = "daily-usage-stats";
+const extensionName = "day1";
 const extensionFolderPath = `third-party/${extensionName}`;
 
 let statsWorker = null; // Web Worker 实例
