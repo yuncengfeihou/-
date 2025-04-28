@@ -1,201 +1,199 @@
 // public/extensions/third-party/day1/index.js
-import { extension_settings, getContext, renderExtensionTemplateAsync } from '../../../extensions.js';
-import { eventSource, event_types, characters, itemizedPrompts } from '../../../../script.js';
-import { moment } from '../../../lib.js'; // 导入 moment.js
-import { groups } from '../../../group-chats.js';
+import {
+    getContext,
+    renderExtensionTemplateAsync,
+    extension_settings, // 如果需要存储插件设置
+    // loadExtensionSettings, // 通常不需要插件自己调用
+} from "../../../extensions.js";
+import {
+    eventSource,
+    event_types,
+    saveSettingsDebounced, // 如果需要保存插件设置
+} from "../../../../script.js";
 
-// 导入 IndexedDB 辅助函数
-import { initDB, addOrUpdateStat, getAllStats } from './idbHelper.js'; // 确保路径正确
-
-const extensionName = "day1";
-const extensionFolderPath = `third-party/${extensionName}`;
-
-let statsWorker = null; // Web Worker 实例
-
-// 获取当前日期字符串 (YYYY-MM-DD)
-function getCurrentDateString() {
-    return moment().format('YYYY-MM-DD');
-}
-
-// 计算提示的总 Token 数 (与之前版本相同)
-function calculatePromptTokens(promptData) {
-    if (!promptData) return 0;
-    if (promptData.oaiTotalTokens !== undefined) return promptData.oaiTotalTokens;
-    let total = 0;
-    const fieldsToSum = [ 'storyStringTokens', 'worldInfoStringTokens', 'examplesStringTokens', 'ActualChatHistoryTokens', 'allAnchorsTokens', 'promptBiasTokens','chatInjects','userPersonaStringTokens','beforeScenarioAnchorTokens', 'afterScenarioAnchorTokens','summarizeStringTokens','authorsNoteStringTokens', 'smartContextStringTokens','chatVectorsStringTokens','dataBankVectorsStringTokens','padding'];
-    for (const field of fieldsToSum) { if (typeof promptData[field] === 'number' && !isNaN(promptData[field])) { total += promptData[field]; } }
-    // if (total === 0 && promptData.rawPrompt) { console.warn("无法精确计算非 OpenAI API 的 Token 总数"); }
-    return total;
-}
-
-
-// 处理用户发送的消息
-async function handleUserMessage(messageId) {
-    const context = getContext();
-    const entityId = context.groupId || context.characters[context.characterId]?.avatar;
-    const entityName = context.groupId ? context.groups.find(g => g.id === context.groupId)?.name : context.characters[context.characterId]?.name;
-
-    if (!entityId) return;
-
-    const todayStr = getCurrentDateString();
-    try {
-        // 调用 IndexedDB 函数更新数据
-        await addOrUpdateStat(todayStr, entityId, entityName, 'userMessages', 1);
-        console.log(`[${extensionName}] User message stat updated for ${entityName} (${entityId}) on ${todayStr}`);
-    } catch (error) {
-        console.error(`[${extensionName}] Failed to update user message stat:`, error);
-    }
-}
-
-// 处理 AI 接收的消息，并记录对应的 Token
-async function handleAiMessage(messageId) {
-    const context = getContext();
-    const entityId = context.groupId || context.characters[context.characterId]?.avatar;
-    const entityName = context.groupId ? context.groups.find(g => g.id === context.groupId)?.name : context.characters[context.characterId]?.name;
-
-    if (!entityId) return;
-
-    const todayStr = getCurrentDateString();
-    let tokensSent = 0;
-    const promptData = itemizedPrompts.find(item => item.mesId === messageId);
-
-    if (promptData) {
-        tokensSent = calculatePromptTokens(promptData);
-    } else {
-        console.warn(`[${extensionName}] AI Message: Prompt data not found for mesId ${messageId}`);
-    }
-
-    try {
-        // 更新 AI 消息数
-        await addOrUpdateStat(todayStr, entityId, entityName, 'aiMessages', 1);
-        // 如果有 Token 数，更新 Token 总数
-        if (tokensSent > 0) {
-            await addOrUpdateStat(todayStr, entityId, entityName, 'totalTokensSent', tokensSent);
-        }
-        console.log(`[${extensionName}] AI message stat (+${tokensSent} tokens) updated for ${entityName} (${entityId}) on ${todayStr}`);
-    } catch (error) {
-        console.error(`[${extensionName}] Failed to update AI message stat:`, error);
-    }
-}
-
-// 在 UI 上显示统计数据 (此版本使用 Web Worker)
-function displayStatsWithWorker() {
-    const displayArea = $('#usage-stats-display-area');
-    displayArea.html('<p>正在加载统计数据...</p>'); // 显示加载提示
-
-    if (!statsWorker) {
-         displayArea.html('<p>错误：Web Worker 未初始化。</p>');
-         console.error(`[${extensionName}] Stats Worker is not initialized.`);
-         return;
-    }
-    console.log(`[${extensionName}] Sending command to worker to fetch stats.`);
-    statsWorker.postMessage({ command: 'fetchAndProcessStats' });
-}
-
-// 更新 UI 的函数 (由 Worker 调用后执行)
-function updateStatsUI(processedData) {
-    const displayArea = $('#usage-stats-display-area');
-    displayArea.empty(); // 清空旧内容
-
-    const sortedDates = Object.keys(processedData).sort().reverse(); // Worker 返回的数据已经是按日期排序的
-
-    if (sortedDates.length === 0) {
-        displayArea.append('<p>暂无统计数据。</p>');
-        return;
-    }
-
-    let html = '';
-    for (const dateStr of sortedDates) {
-        const entities = processedData[dateStr]; // Worker 返回的数据已经是按实体排序的
-
-        if (entities.length === 0) continue;
-
-        html += `<div class="stats-date-header">${dateStr}</div>`;
-        html += '<table class="stats-table">';
-        html += '<thead><tr><th>角色/群组</th><th>用户消息</th><th>AI 消息</th><th>发送 Tokens</th></tr></thead>';
-        html += '<tbody>';
-
-        for (const data of entities) {
-            html += `<tr>
-                        <td class="entity-name">${data.name}</td>
-                        <td>${data.userMessages}</td>
-                        <td>${data.aiMessages}</td>
-                        <td>${data.totalTokensSent}</td>
-                     </tr>`;
-        }
-
-        html += '</tbody></table>';
-    }
-
-    displayArea.append(html);
-     console.log(`[${extensionName}] Stats UI updated.`);
-}
-
-
-// 插件初始化逻辑
 jQuery(async () => {
-    console.log(`加载插件: ${extensionName}`);
+    const pluginName = "day1";
+    const pluginFolderName = "day1"; // 确保与你的文件夹名一致
+    const extensionSettings = extension_settings[pluginName] || {}; // 获取或初始化设置对象
 
-    // 1. 初始化 IndexedDB
-    try {
-        await initDB(); // 确保数据库已准备好
-    } catch (error) {
-         console.error(`[${extensionName}] Failed to initialize IndexedDB:`, error);
-         // 可以在 UI 上显示错误信息
-    }
+    let statWorker;
+    let currentChatId = null;
+    let isWorkerReady = false;
+    let lastDisplayedStats = { userMessages: 0, aiMessages: 0, totalTokens: 0 };
 
-     // 2. 初始化 Web Worker (可选)
-    try {
-        statsWorker = new Worker('/public/extensions/third-party/day1/statsWorker.js', { type: 'module' });
+    // 1. 初始化 Web Worker
+    function initWorker() {
+        try {
+            // 确保路径相对于 SillyTavern 的根目录
+            statWorker = new Worker(`extensions/third-party/${pluginFolderName}/worker.js`);
+            isWorkerReady = true;
+            console.log(`${pluginName}: Web Worker 初始化成功。`);
 
-        statsWorker.onmessage = (event) => {
-            if (event.data && event.data.command === 'statsResult') {
-                console.log(`[${extensionName}] Received stats result from worker.`);
-                updateStatsUI(event.data.data);
-            } else if (event.data && event.data.command === 'statsError') {
-                console.error(`[${extensionName}] Worker error:`, event.data.error);
-                 $('#usage-stats-display-area').html(`<p>加载统计数据时出错: ${event.data.error}</p>`);
-            }
-        };
-        statsWorker.onerror = (error) => {
-            console.error(`[${extensionName}] Worker initialization error:`, error);
-             $('#usage-stats-display-area').html('<p>错误：无法启动统计 Worker。</p>');
-             statsWorker = null; // 标记为不可用
-        };
-         console.log(`[${extensionName}] Stats Worker initialized.`);
-    } catch (error) {
-        console.error(`[${extensionName}] Failed to create Web Worker:`, error);
-        $('#usage-stats-display-area').html('<p>错误：浏览器不支持或无法创建 Web Worker。</p>');
-    }
+            statWorker.onmessage = (event) => {
+                const { type, success, payload, error } = event.data;
+                if (type === 'STATS_RESULT' && success) {
+                    // 如果获取的数据是今天的，并且是当前聊天的，更新UI
+                    const todayKey = getTodayDateKey();
+                    if (payload.dateKey === todayKey && currentChatId) {
+                         const chatStats = payload.stats[currentChatId] || { userMessages: 0, aiMessages: 0, totalTokens: 0 };
+                         updateDisplayValues(chatStats.userMessages, chatStats.aiMessages, chatStats.totalTokens);
+                         lastDisplayedStats = chatStats; // 缓存最后显示的数据
+                    }
+                } else if (!success) {
+                    console.error(`${pluginName}: Worker 错误: ${error}`, payload);
+                }
+            };
 
+            statWorker.onerror = (error) => {
+                console.error(`${pluginName}: Web Worker 发生错误:`, error);
+                isWorkerReady = false;
+                toastr.error("每日统计插件 Worker 出错，统计功能可能无法正常工作。", "插件错误");
+            };
 
-    // 3. 加载并注入 UI 模板
-    try {
-        const settingsHtml = await renderExtensionTemplateAsync(extensionFolderPath, 'stats_display');
-        $('#extensions_settings').append(settingsHtml);
-
-        // 4. 绑定 UI 元素的事件监听器
-        $('#refresh-usage-stats').on('click', displayStatsWithWorker); // 使用 Worker 版本
-
-    } catch (error) {
-        console.error(`[${extensionName}] 加载或注入 stats_display.html 失败:`, error);
-    }
-
-    // 5. 注册 SillyTavern 事件监听器
-    eventSource.on(event_types.MESSAGE_SENT, (messageId) => {
-        const context = getContext();
-        if (context.chat[messageId]?.is_user === true) {
-            handleUserMessage(messageId);
+        } catch (error) {
+            console.error(`${pluginName}: 初始化 Web Worker 失败:`, error);
+            isWorkerReady = false;
+            toastr.error("无法启动每日统计插件的 Worker，统计功能将不可用。", "插件错误");
         }
-    });
+    }
 
-    eventSource.on(event_types.MESSAGE_RECEIVED, (messageId, type) => {
+    // 2. 获取当天的日期 Key (YYYY-MM-DD)
+    function getTodayDateKey() {
+        return new Date().toISOString().split('T')[0];
+    }
+
+    // 3. 更新扩展页面中的统计数据显示
+    function updateDisplayValues(userCount, aiCount, tokenCount) {
+        $('#day1_user_messages').text(userCount);
+        $('#day1_ai_messages').text(aiCount);
+        $('#day1_total_tokens').text(tokenCount);
+    }
+
+    // 4. 从 Worker 请求更新显示 (针对当前聊天)
+    async function triggerDisplayUpdate() {
+        if (!isWorkerReady || !currentChatId) {
+            // 如果 worker 未就绪或没有当前聊天，显示 0
+            updateDisplayValues(0, 0, 0);
+            lastDisplayedStats = { userMessages: 0, aiMessages: 0, totalTokens: 0 }; // 重置缓存
+            return;
+        }
+        const dateKey = getTodayDateKey();
+        // 请求 worker 获取当天的所有统计数据
+        statWorker.postMessage({ type: 'GET_STATS', payload: { dateKey } });
+        // Worker 的 onmessage 会处理结果并更新 UI
+    }
+
+    // 5. 处理发送的消息
+    async function handleMessageSent(messageId) {
+        if (!isWorkerReady) return;
         const context = getContext();
+        // 确保消息 ID 有效且是用户消息
+        if (messageId === undefined || messageId < 0 || messageId >= context.chat.length || !context.chat[messageId]?.is_user) {
+            return;
+        }
+
         const message = context.chat[messageId];
-        if (message && !message.is_user && !message.is_system && (context.characterId !== undefined || context.groupId !== undefined)) {
-            handleAiMessage(messageId);
-        }
-    });
+        const chatId = currentChatId; // 使用事件发生时的 currentChatId
+        const dateKey = getTodayDateKey();
 
-    console.log(`插件 ${extensionName} 初始化完成。`);
+        if (!chatId) {
+             console.warn(`${pluginName}: 无法确定 chatId，跳过用户消息统计。`);
+             return;
+        }
+
+        try {
+            // 异步计算 Token 数
+            const tokenCount = await context.getTokenCountAsync(message.mes);
+            // 发送给 Worker 更新统计
+            statWorker.postMessage({
+                type: 'UPDATE_STATS',
+                payload: { dateKey, chatId, messageType: 'user', tokenCount }
+            });
+            // 立即尝试更新显示（基于本地缓存+1，然后由 worker 的 GET_STATS 修正）
+            updateDisplayValues(lastDisplayedStats.userMessages + 1, lastDisplayedStats.aiMessages, lastDisplayedStats.totalTokens + tokenCount);
+            lastDisplayedStats.userMessages += 1;
+            lastDisplayedStats.totalTokens += tokenCount;
+
+        } catch (error) {
+            console.error(`${pluginName}: 计算用户消息 token 或发送到 worker 时出错:`, error);
+        }
+    }
+
+    // 6. 处理接收的消息
+    async function handleMessageReceived(messageId) {
+        if (!isWorkerReady) return;
+        const context = getContext();
+        // 确保消息 ID 有效且是 AI 消息
+         if (messageId === undefined || messageId < 0 || messageId >= context.chat.length || context.chat[messageId]?.is_user || context.chat[messageId]?.is_system) {
+            return;
+        }
+
+        const message = context.chat[messageId];
+        const chatId = currentChatId; // 使用事件发生时的 currentChatId
+        const dateKey = getTodayDateKey();
+
+        if (!chatId) {
+             console.warn(`${pluginName}: 无法确定 chatId，跳过 AI 消息统计。`);
+             return;
+        }
+
+        try {
+            // 异步计算 Token 数
+            const tokenCount = await context.getTokenCountAsync(message.mes);
+            // 发送给 Worker 更新统计
+            statWorker.postMessage({
+                type: 'UPDATE_STATS',
+                payload: { dateKey, chatId, messageType: 'ai', tokenCount }
+            });
+             // 立即尝试更新显示（基于本地缓存+1，然后由 worker 的 GET_STATS 修正）
+             updateDisplayValues(lastDisplayedStats.userMessages, lastDisplayedStats.aiMessages + 1, lastDisplayedStats.totalTokens + tokenCount);
+             lastDisplayedStats.aiMessages += 1;
+             lastDisplayedStats.totalTokens += tokenCount;
+        } catch (error) {
+            console.error(`${pluginName}: 计算 AI 消息 token 或发送到 worker 时出错:`, error);
+        }
+    }
+
+    // 7. 处理聊天切换
+    function handleChatChanged(chatId) {
+        // SillyTavern 的 chatId 可能是角色头像文件名或群组 ID
+        // const context = getContext();
+        // currentChatId = context.groupId || (context.characterId !== undefined ? context.characters[context.characterId]?.avatar : null);
+        // 使用 getContext().getCurrentChatId() 更可靠
+        const context = getContext();
+        currentChatId = context.getCurrentChatId();
+
+        console.log(`${pluginName}: 聊天切换，新的 Chat ID: ${currentChatId}`);
+        triggerDisplayUpdate(); // 切换聊天后更新显示
+    }
+
+    // --- 插件初始化 ---
+    try {
+        console.log(`加载插件: ${pluginName}`);
+
+        // 加载并注入 UI
+        const settingsHtml = await renderExtensionTemplateAsync(`third-party/${pluginFolderName}`, 'settings_display');
+        $('#extensions_settings').append(settingsHtml); // 或者 #translation_container
+
+        // 初始化 Worker
+        initWorker();
+
+        // 获取当前聊天 ID 并首次更新显示
+        // 需要等待上下文可用
+        const context = getContext();
+        // currentChatId = context.groupId || (context.characterId !== undefined ? context.characters[context.characterId]?.avatar : null);
+        currentChatId = context.getCurrentChatId();
+        console.log(`${pluginName}: 初始 Chat ID: ${currentChatId}`);
+        triggerDisplayUpdate();
+
+        // 注册事件监听器
+        eventSource.on(event_types.MESSAGE_SENT, handleMessageSent);
+        eventSource.on(event_types.MESSAGE_RECEIVED, handleMessageReceived);
+        eventSource.on(event_types.CHAT_CHANGED, handleChatChanged);
+
+        console.log(`${pluginName}: 初始化完成并已设置事件监听器。`);
+
+    } catch (error) {
+        console.error(`${pluginName}: 初始化失败:`, error);
+    }
 });
