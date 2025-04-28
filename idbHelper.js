@@ -1,10 +1,10 @@
 // public/extensions/third-party/daily-usage-stats/idbHelper.js
 
+// 确保在index.js中定义extensionName
+const extensionName = "day1";
 const DB_NAME = 'SillyTavernStatsDB';
 const STORE_NAME = 'usageStats';
 const DB_VERSION = 1; // 版本号，如果更改 schema 需要增加
-// 确保在index.js中定义extensionName
-const extensionName = "day1";
 
 let dbPromise = null;
 
