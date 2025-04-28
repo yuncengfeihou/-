@@ -1,4 +1,4 @@
-// public/extensions/third-party/daily-usage-stats/index.js
+// public/extensions/third-party/day1/index.js
 import { extension_settings, getContext, renderExtensionTemplateAsync } from '../../../extensions.js';
 import { eventSource, event_types, characters, itemizedPrompts } from '../../../../script.js';
 import { moment } from '../../../lib.js'; // 导入 moment.js
@@ -146,15 +146,7 @@ jQuery(async () => {
 
      // 2. 初始化 Web Worker (可选)
     try {
-        // 确保 worker 文件路径相对于 SillyTavern 的根目录或主 JS 文件是正确的
-        // 通常相对于 `script.js` 或应用程序入口
-        // 这里的路径 `'./extensions/third-party/daily-usage-stats/statsWorker.js'` 是一个 *示例*，
-        // 你需要根据你的项目结构调整！！！
-        // 如果你的 index.js 在 public/extensions/third-party/daily-usage-stats/
-        // 并且 script.js 在 public/
-        // 那么正确的路径可能是 './extensions/third-party/daily-usage-stats/statsWorker.js'
-        // （相对于根目录下的 public/index.html）
-        statsWorker = new Worker('./extensions/third-party/daily-usage-stats/statsWorker.js', { type: 'module' });
+        statsWorker = new Worker('./extensions/third-party/day1/statsWorker.js', { type: 'module' });
 
         statsWorker.onmessage = (event) => {
             if (event.data && event.data.command === 'statsResult') {
