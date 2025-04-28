@@ -25,7 +25,7 @@ jQuery(async () => {
     function initWorker() {
         try {
             // 确保路径相对于 SillyTavern 的根目录
-            statWorker = new Worker(`extensions/third-party/${pluginFolderName}/worker.js`);
+            statWorker = new Worker(`scripts/extensions/third-party/${pluginFolderName}/worker.js`);
             // 注意：此时 isWorkerReady 还是 false，等待 worker 发送 'WORKER_READY'
 
             statWorker.onmessage = (event) => {
