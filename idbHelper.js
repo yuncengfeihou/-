@@ -3,6 +3,8 @@
 const DB_NAME = 'SillyTavernStatsDB';
 const STORE_NAME = 'usageStats';
 const DB_VERSION = 1; // 版本号，如果更改 schema 需要增加
+// 确保在index.js中定义extensionName
+const extensionName = "day1";
 
 let dbPromise = null;
 
@@ -156,5 +158,3 @@ async function getStatsByDate(dateStr) {
 
 // 导出需要在 index.js 中使用的函数
 export { initDB, addOrUpdateStat, getAllStats, getStatsByDate };
-// 确保在index.js中定义extensionName
-const extensionName = "daily-usage-stats";
