@@ -1,14 +1,33 @@
-/* public/extensions/third-party/daily-usage-stats/style.css */
-.stats-container {
-    /* 你可以在这里添加自定义样式 */
-    color: var(--text-color);
+/* 可选：为统计表格添加一些样式 */
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 0.9em;
 }
 
-#usage-stats-display-area {
-    max-height: 400px; /* 限制高度，添加滚动条 */
-    overflow-y: auto;
-    margin-top: 10px;
-    border: 1px solid var(--SmartThemeStrongColor);
-    padding: 10px;
+.stats-table th,
+.stats-table td {
+    border: 1px solid var(--typical-background-color__border); /* 使用 ST 变量 */
+    padding: 6px 8px;
+    text-align: left;
+}
+
+.stats-table th {
+    background-color: var(--typical-background-color__light); /* 使用 ST 变量 */
+    font-weight: bold;
+}
+
+.stats-table tbody tr:nth-child(even) {
+    background-color: var(--typical-background-color__secondary); /* 使用 ST 变量 */
+}
+
+.stats-table td i {
+    color: var(--text-color-secondary); /* 使用 ST 变量 */
+}
+
+#day1-stats-container {
+    background-color: var(--typical-background-color); /* 使用 ST 变量 */
+    border: 1px solid var(--typical-background-color__border); /* 使用 ST 变量 */
     border-radius: 5px;
 }
