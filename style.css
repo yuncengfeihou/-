@@ -1,0 +1,14 @@
+/* public/extensions/third-party/daily-usage-stats/style.css */
+.stats-container {
+    /* 你可以在这里添加自定义样式 */
+    color: var(--text-color);
+}
+
+#usage-stats-display-area {
+    max-height: 400px; /* 限制高度，添加滚动条 */
+    overflow-y: auto;
+    margin-top: 10px;
+    border: 1px solid var(--SmartThemeStrongColor);
+    padding: 10px;
+    border-radius: 5px;
+}
