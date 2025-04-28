@@ -1,7 +1,7 @@
 // public/extensions/third-party/daily-usage-stats/index.js
 import { extension_settings, getContext, renderExtensionTemplateAsync } from '../../../extensions.js';
 import { eventSource, event_types, characters, groups, itemizedPrompts } from '../../../../script.js';
-import moment from "../../../../../../../lib/moment.js"; // 导入 moment.js
+import { moment } from '../../../lib.js'; // 导入 moment.js
 // 导入 IndexedDB 辅助函数
 import { initDB, addOrUpdateStat, getAllStats } from './idbHelper.js'; // 确保路径正确
 
