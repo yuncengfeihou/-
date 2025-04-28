@@ -1,6 +1,6 @@
 import { extension_settings, loadExtensionSettings, getContext, renderExtensionTemplateAsync } from '../../../extensions.js';
 import { saveSettingsDebounced, eventSource, event_types, getTokenCountAsync } from '../../../../script.js';
-import { getTokenCountAsync } from '../../tokenizers.js';
+import { getTokenCountAsync } from '../../../tokenizers.js';
 
 (function () {
     const extensionName = "day1";
